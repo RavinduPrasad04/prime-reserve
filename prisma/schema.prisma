@@ -1,0 +1,138 @@
+// Prime Reserve data model — aligned with the assessment ERD:
+// https://dbdiagram.io/e/6ace56f6e308025ea5e335ba/6ace570710dbb6efb5e97702
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  MEMBER
+}
+
+enum ResourceType {
+  ROOM
+  STUDIO
+  EQUIPMENT
+  VEHICLE
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum NotificationType {
+  RESERVATION_CREATED
+  RESERVATION_UPDATED
+  RESERVATION_CANCELLED
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String   @db.VarChar(100)
+  email        String   @unique @db.VarChar(255)
+  department   String?  @db.VarChar(100)
+  jobTitle     String?  @map("job_title") @db.VarChar(100)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  role         UserRole
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  reservations  Reservation[]  @relation("ReservationOwner")
+  cancellations Reservation[]  @relation("ReservationCancelledBy")
+  notifications Notification[]
+
+  @@map("users")
+}
+
+model Resource {
+  id          String       @id @default(uuid()) @db.Uuid
+  name        String       @db.VarChar(100)
+  type        ResourceType
+  description String?      @db.VarChar(500)
+  location    String       @db.VarChar(150)
+  capacity    Int
+  color       String       @db.Char(7)
+  isActive    Boolean      @default(true) @map("is_active")
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  reservations  Reservation[]
+  bookingBlocks BookingBlock[]
+
+  @@map("resources")
+}
+
+model BookingSettings {
+  id               Int     @id @default(1)
+  restrictSaturday Boolean @default(false) @map("restrict_saturday")
+  restrictSunday   Boolean @default(false) @map("restrict_sunday")
+
+  @@map("booking_settings")
+}
+
+model BookingBlock {
+  id         String   @id @default(uuid()) @db.Uuid
+  date       DateTime @db.Date
+  resourceId String?  @map("resource_id") @db.Uuid
+  reason     String?  @db.VarChar(300)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  resource Resource? @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@index([date, resourceId])
+  @@map("booking_blocks")
+}
+
+model Reservation {
+  id                 String            @id @default(uuid()) @db.Uuid
+  resourceId         String            @map("resource_id") @db.Uuid
+  userId             String            @map("user_id") @db.Uuid
+  title              String            @db.VarChar(100)
+  description        String?           @db.VarChar(500)
+  attendees          Int               @default(1)
+  startAt            DateTime          @map("start_at") @db.Timestamptz(3)
+  endAt              DateTime          @map("end_at") @db.Timestamptz(3)
+  status             ReservationStatus
+  cancelledAt        DateTime?         @map("cancelled_at") @db.Timestamptz(3)
+  cancelledById      String?           @map("cancelled_by_id") @db.Uuid
+  cancellationReason String?           @map("cancellation_reason") @db.VarChar(300)
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  resource      Resource       @relation(fields: [resourceId], references: [id])
+  user          User           @relation("ReservationOwner", fields: [userId], references: [id])
+  cancelledBy   User?          @relation("ReservationCancelledBy", fields: [cancelledById], references: [id])
+  notifications Notification[]
+
+  @@index([resourceId, startAt, endAt])
+  @@index([userId])
+  @@index([status])
+  @@map("reservations")
+}
+
+model Notification {
+  id            String           @id @default(uuid()) @db.Uuid
+  userId        String           @map("user_id") @db.Uuid
+  reservationId String?          @map("reservation_id") @db.Uuid
+  type          NotificationType
+  title         String           @db.VarChar(100)
+  message       String           @db.VarChar(500)
+  isRead        Boolean          @default(false) @map("is_read")
+  readAt        DateTime?        @map("read_at") @db.Timestamptz(3)
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user        User         @relation(fields: [userId], references: [id])
+  reservation Reservation? @relation(fields: [reservationId], references: [id])
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
