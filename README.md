@@ -163,6 +163,12 @@ prime-reserve/
 └── README.md
 ```
 
+### Development Tools and Approach
+
+- **GitHub Copilot** — Used AI-assisted development to accelerate implementation, explore solutions, and improve development efficiency within the three-day assessment period.
+- **Git and GitHub** — Used for version control and source code management.
+- **Manual Testing** — Tested the application step by step by checking key features, validating user workflows, and verifying reservation behavior.
+
 ## Future Improvements
 
 - Introduce an optional reservation approval workflow.
